@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>プロトタイプ連動テスト</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            transition: background-color 0.3s ease;
+        }
+        button {
+            padding: 20px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            background-color: #007bff;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <button id="btn">相手の画面の色を変える</button>
+
+    <script>
+        const socket = io();
+        const button = document.getElementById('btn');
+
+        // ボタンを押したら、サーバーに 'color-change' という合図を送る
+        button.addEventListener('click', () => {
+            socket.emit('color-change');
+        });
+
+        // サーバーから 'change-bg' という合図が届いたら、背景色をランダムに変える
+        socket.on('change-bg', () => {
+            const colors = ['#FF6B6B', '#4D96FF', '#6BCB77', '#FFD93D', '#B983FF'];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            document.body.style.backgroundColor = randomColor;
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Receiver (Zone UI)</title>
+    <style>
+        body {
+            margin: 0; padding: 0;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: #ffffff; color: #000000;
+            height: 100vh; display: flex; flex-direction: column;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        
+        .top-half {
+            height: 50vh; width: 100%;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            position: relative; padding-top: 20px;
+            box-sizing: border-box;
+        }
+
+        .mode-screen {
+            display: none; flex-direction: column; align-items: center; justify-content: center; width: 100%;
+            height: 100%;
+        }
+        .mode-screen.active {
+            display: flex;
+        }
+
+        .small-text { font-size: 13px; font-weight: bold; color: #666666; margin: 3px 0; }
+        .face { font-size: 88px; font-weight: bold; letter-spacing: 2px; margin: 25px 0; position: relative; }
+        
+        /* 🌿 修正：時計の文字色をパレットの深緑色に変更 */
+        .current-time { font-size: 24px; font-weight: 300; color: #2D4B43; font-variant-numeric: tabular-nums; }
+
+        .sensor-status {
+            position: absolute; top: 20px; left: 20px;
+            display: flex; flex-direction: row; 
+            gap: 12px;          
+            font-size: 13px;    
+            font-weight: bold; color: #666666;
+            text-align: left;
+            z-index: 10;
+        }
+        .sensor-item { display: flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
+
+        .mode-tag { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; letter-spacing: 0.5px; }
+        .mode-tag.day { background: #FFEAA7; color: #D63031; }
+        .mode-tag.night { background: #DFF9FB; color: #130CB7; }
+
+        .status-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px; 
+            margin-top: -10px; 
+        }
+
+        .collect-status { display: flex; align-items: center; gap: 8px; animation: blink 2s infinite; }
+        .ring { width: 18px; height: 18px; border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .collect-text { font-size: 13px; font-weight: bold; color: #3498db; }
+
+        .zzz { 
+            position: absolute; top: -40px; right: -55px;
+            font-size: 36px; font-weight: bold; color: #9b59b6; 
+            animation: blink 2s infinite; 
+        }
+        @keyframes blink { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+        #volume-overlay {
+            position: absolute; top: calc(50% - 110px); left: 50%; transform: translateX(-50%); 
+            background: rgba(0, 0, 0, 0.75); color: #fff;
+            padding: 6px 18px; border-radius: 20px; font-size: 13px; font-weight: bold;
+            opacity: 0; transition: opacity 0.2s ease; pointer-events: none; z-index: 100;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.15); letter-spacing: 0.5px;
+        }
+
+        .bottom-half { height: 50vh; width: 100%; position: relative; padding-top: 30px; box-sizing: border-box; display: flex; justify-content: center; }
+        .ui-zone { width: 290px; height: 76px; background: #f1f2f6; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; padding: 0 10px; box-sizing: border-box; box-shadow: inset 0 2px 5px rgba(0,0,0,0.05); }
+        .ui-btn { width: 80px; height: 50px; margin: 0 8px; border: none; border-radius: 8px; background: #ffffff; color: #333333; font-size: 18px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: background 0.1s, transform 0.1s; -webkit-tap-highlight-color: transparent; }
+        .ui-btn:active { background: #e4e7eb; transform: scale(0.95); }
+        
+        /* 🌿 修正：JOUR/NUITボタンのテキスト色を深緑色に変更 */
+        .ui-btn.power { background: #ffffff; color: #2D4B43; font-size: 13px; }
+
+        /* シンプルな黒文字テキスト表示 */
+        .bgm-display-status {
+            font-size: 13px; 
+            font-weight: bold;
+            color: #333333; 
+            background: none; 
+            padding: 0; 
+            border-radius: 0;
+            letter-spacing: normal;
+            box-shadow: none; 
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            animation: pulse-soft-dark 2.5s infinite ease-in-out; 
+        }
+
+        @keyframes pulse-soft-dark {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; }
+        }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <audio id="audio-white-noise" src="audio/bruit_blanc.mp3" loop></audio>
+    <audio id="audio-rain" src="audio/pluie.mp3" loop></audio>
+    <audio id="audio-lullaby" src="audio/berceuse.mp3" loop></audio>
+    <audio id="audio-soft-music" src="audio/musique_douce.mp3" loop></audio>
+
+    <div id="debug-error" style="position: absolute; top: 5px; left: 5px; color: red; font-size: 11px; z-index: 9999; font-family: monospace; max-width: 90%;"></div>
+
+    <div class="top-half">
+        <div id="volume-overlay">VOLUME : <span id="vol-value">50</span>%</div>
+
+        <div id="screen-waiting" class="mode-screen active">
+            <div class="sensor-status">
+                <div class="sensor-item">🌡️ <span class="val-temp">24.2</span>°C</div>
+                <div class="sensor-item">💧 <span class="val-humidity">55</span>%</div>
+                <div class="sensor-item">💡 <span class="val-lux">120</span> lx</div>
+                <div class="sensor-item"><span class="mode-tag day">☀️ Mode jour</span></div>
+            </div>
+            <div id="wait-face" class="face">´・ω・｀</div>
+            <div class="current-time clock-display">00:00:00</div>
+        </div>
+
+        <div id="screen-environment" class="mode-screen">
+            <div class="sensor-status">
+                <div class="sensor-item">🌡️ <span class="val-temp">24.2</span>°C</div>
+                <div class="sensor-item">💧 <span class="val-humidity">55</span>%</div>
+                <div class="sensor-item">💡 <span class="val-lux">120</span> lx</div>
+                <div class="sensor-item"><span class="mode-tag night">🌙 Mode nuit</span></div>
+            </div>
+            <div class="face">
+                ˘ω˘
+                <div class="zzz">zzz</div>
+            </div>
+            
+            <div class="status-container">
+                <div class="collect-status">
+                    <div class="ring"></div>
+                    <div class="collect-text">Collecte des données...</div>
+                </div>
+                <div id="current-bgm-text" class="bgm-display-status">Lecture de : Bruit blanc ... ♪</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-half">
+        <div class="ui-zone">
+            <button class="ui-btn" onclick="adjustVolume(-10)">−</button>
+            <button id="power-btn" class="ui-btn power" onclick="activateCollecting()">JOUR/NUIT</button>
+            <button class="ui-btn" onclick="adjustVolume(10)">＋</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let waitAnimationInterval = null;
+        let volume = 50; 
+        let volumeTimeout = null;
+        let isNightMode = false;
+        let selectedBGMType = 'white-noise';
+
+        const bgmNamesFr = {
+            'white-noise': 'Bruit blanc',
+            'rain': 'Pluie 🌧️',
+            'lullaby': 'Berceuse 🎵',
+            'soft-music': 'Musique douce 🎶',
+            'silence': 'Silence 🔇'
+        };
+
+        const tracks = {
+            'white-noise': document.getElementById('audio-white-noise'),
+            'rain': document.getElementById('audio-rain'),
+            'lullaby': document.getElementById('audio-lullaby'),
+            'soft-music': document.getElementById('audio-soft-music')
+        };
+
+        function updateAllTracksVolume() {
+            Object.values(tracks).forEach(track => {
+                if (track) track.volume = volume / 100;
+            });
+        }
+        updateAllTracksVolume();
+
+        function adjustVolume(amount) {
+            volume = Math.max(0, Math.min(100, volume + amount));
+            updateAllTracksVolume();
+
+            const overlay = document.getElementById('volume-overlay');
+            document.getElementById('vol-value').innerText = volume;
+            overlay.style.opacity = '1';
+            clearTimeout(volumeTimeout);
+            volumeTimeout = setTimeout(() => { overlay.style.opacity = '0'; }, 2000);
+
+            socket.emit('volume-change', { volume: volume });
+        }
+
+        function activateCollecting() {
+            if (!isNightMode) {
+                switchMode('environment'); 
+                socket.emit('change-mode', { mode: 'environment' });
+            } else {
+                switchMode('waiting');     
+                socket.emit('change-mode', { mode: 'waiting' });
+            }
+        }
+
+        function playCurrentBGM() {
+            Object.values(tracks).forEach(track => {
+                if (track) {
+                    track.pause();
+                    track.currentTime = 0;
+                }
+            });
+
+            if (isNightMode && selectedBGMType !== 'silence') {
+                const currentTrack = tracks[selectedBGMType];
+                if (currentTrack) {
+                    const debugEl = document.getElementById('debug-error');
+                    currentTrack.play()
+                    .then(() => { if(debugEl) debugEl.innerText = ""; })
+                    .catch(err => {
+                        if(debugEl) debugEl.innerText = "Pour écouter la musique, veuillez d'abord appuyer n'importe où sur l'écran.";
+                        console.error("BGM Play Error:", err);
+                    });
+                }
+            }
+        }
+
+        function updateBGMDisplayText() {
+            const bgmTextEl = document.getElementById('current-bgm-text');
+            if (bgmTextEl) {
+                if (selectedBGMType === 'silence') {
+                    bgmTextEl.innerHTML = `Mode silencieux 🔇`;
+                    bgmTextEl.style.animation = 'none'; 
+                    bgmTextEl.style.color = '#7f8c8d';
+                } else {
+                    const friendlyName = bgmNamesFr[selectedBGMType] || 'Bruit blanc';
+                    bgmTextEl.innerHTML = `Lecture de : ${friendlyName} ... ♪`;
+                    bgmTextEl.style.animation = 'pulse-soft-dark 2.5s infinite ease-in-out'; 
+                    bgmTextEl.style.color = '#333333'; 
+                }
+            }
+        }
+
+        function switchMode(modeName) {
+            document.querySelectorAll('.mode-screen').forEach(el => el.classList.remove('active'));
+            clearInterval(waitAnimationInterval);
+
+            const activeScreen = document.getElementById(`screen-${modeName}`);
+            if (activeScreen) {
+                activeScreen.classList.add('active');
+            }
+
+            isNightMode = (modeName === 'environment');
+
+            playCurrentBGM();
+            updateBGMDisplayText();
+
+            if (modeName === 'waiting') {
+                startWaitFaceAnimation();
+            }
+        }
+
+        socket.on('render-display', (data) => {
+            console.log("Mode reçu desde l'app :", data.mode);
+            if(data.mode === 'environment' || data.mode === 'waiting') {
+                switchMode(data.mode);
+            }
+        });
+
+        socket.on('bgm-selection-change', (data) => {
+            if (data && data.bgmType) {
+                console.log("BGM変更を受信 :", data.bgmType);
+                selectedBGMType = data.bgmType;
+                playCurrentBGM();
+                updateBGMDisplayText();
+            }
+        });
+
+        socket.on('volume-change', (data) => {
+            if (data && data.volume !== undefined) {
+                console.log("Appから音量変更を受信 :", data.volume);
+                volume = data.volume;
+                updateAllTracksVolume();
+                document.getElementById('vol-value').innerText = volume;
+            }
+        });
+
+        function startWaitFaceAnimation() {
+            const faceEl = document.getElementById('wait-face');
+            if (!faceEl) return;
+            const facePatterns = ['・ω・', '-ω-', '~ω~'];
+            let index = 0;
+            faceEl.innerText = facePatterns[0];
+            waitAnimationInterval = setInterval(() => {
+                index = (index + 1) % facePatterns.length;
+                faceEl.innerText = facePatterns[index];
+            }, 3000);
+        }
+
+        function updateFakeSensorValues() {
+            currentTemp += (Math.random() - 0.5) * 0.2;
+            currentHumidity += Math.floor((Math.random() - 0.5) * 3);
+            currentLux += Math.floor((Math.random() - 0.5) * 5);
+            document.querySelectorAll('.val-temp').forEach(el => el.innerText = currentTemp.toFixed(1));
+            document.querySelectorAll('.val-humidity').forEach(el => el.innerText = currentHumidity);
+            document.querySelectorAll('.val-lux').forEach(el => el.innerText = currentLux);
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.querySelectorAll('.clock-display').forEach(el => { el.innerText = `${hours}:${minutes}:${seconds}`; });
+        }
+        
+        startWaitFaceAnimation();
+        setInterval(updateClock, 1000);
+        updateClock();
+        setInterval(updateFakeSensorValues, 5000);
+        updateFakeSensorValues();
+    </script>
+</body>
+</html>

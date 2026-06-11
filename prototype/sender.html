@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>操作側（モードコントローラー）</title>
+    <style>
+        body { 
+            font-family: 'Helvetica Neue', Arial, sans-serif; 
+            background: #222; 
+            color: white; 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 20px; 
+            user-select: none;
+        }
+        h2 { text-align: center; font-size: 18px; color: #aaa; margin-top: 10px; }
+        .btn-group { display: flex; flex-direction: column; gap: 15px; }
+        
+        button { 
+            padding: 20px; 
+            font-size: 16px; 
+            font-weight: bold; 
+            border: none; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            color: white; 
+            transition: background 0.1s, transform 0.1s; 
+            -webkit-tap-highlight-color: transparent; 
+        }
+        .btn-collect { background: #3498db; }
+        .btn-wait { background: #95a5a6; }
+        .btn-env { background: #9b59b6; }
+        
+        button:active { 
+            filter: brightness(0.8); 
+            transform: scale(0.98);
+        }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <h2>画面モード切り替え</h2>
+    
+    <div class="btn-group">
+        <button class="btn-collect" onclick="changeMode('collecting')">1. データ収集画面</button>
+        <button class="btn-wait" onclick="changeMode('waiting')">2. 待機画面</button>
+        <button class="btn-env" onclick="changeMode('environment')">3. 環境変更画面</button>
+    </div>
+
+    <script>
+        const socket = io();
+
+        function changeMode(modeName) {
+            console.log("サーバーへ送信するモード:", modeName);
+            // ★【修正】'update-display' から 'render-display' に変更しました
+            socket.emit('render-display', { mode: modeName });
+        }
+    </script>
+</body>
+</html>

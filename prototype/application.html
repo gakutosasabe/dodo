@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Application - Contrôle de Sommeil</title>
+    <style>
+        :root {
+            /* 🎨 パレット「Ocean Breeze」の適用 */
+            --ocean-dark: #16697A;
+            --ocean-medium: #489FB5;
+            --ocean-light: #82C0CC;
+            --sand-soft: #EDE7E3;
+            --sunset-orange: #FFA62B;
+
+            /* アプリケーション各画面へのマッピング */
+            --bg-top: var(--sand-soft);
+            --text-brand: var(--ocean-dark);
+            --text-main-light: #2d3436;
+            --text-sub-light: #515875;
+
+            /* 📊 睡眠データ画面用（少し透明感を持たせたバリエーション） */
+            --bg-report: #f0ece9;
+            --text-report-main: var(--ocean-dark);
+            --text-report-sub: #516870;
+            --card-report: #ffffff;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-top); color: var(--text-main-light);
+            min-height: 100vh; box-sizing: border-box;
+            user-select: none;
+            padding-bottom: 75px; /* ボトムナビのスペース */
+            transition: background 0.3s ease;
+        }
+
+        /* 画面共通スタイル */
+        .app-screen {
+            display: none;
+            padding: 20px;
+            box-sizing: border-box;
+            max-width: 480px; margin: 0 auto;
+        }
+        .app-screen.active {
+            display: block;
+        }
+
+        /* ==========================================
+           【画面0】TOPページ（Accueil）
+           ========================================== */
+        .top-header {
+            display: flex; justify-content: flex-start; align-items: center; margin-bottom: 16px; height: 10px;
+        }
+
+        /* ✨ センター大型ロゴ（猫とDODO） */
+        .app-logo-container {
+            text-align: center;
+            margin: 24px 0 16px 0;
+            animation: floating-logo 4s ease-in-out infinite;
+        }
+        .app-logo-main {
+            font-size: 52px;
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: 1px;
+            color: var(--text-brand);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        @keyframes floating-logo {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+
+        /* ブランドメッセージエリア */
+        .welcome-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .welcome-title {
+            font-size: 24px; font-weight: 800; color: var(--text-brand); margin: 0 0 6px 0;
+        }
+        .welcome-subtitle {
+            font-size: 14px; color: var(--text-sub-light); margin: 0; font-weight: 500;
+        }
+
+        /* 📊 3カラムメトリクスカード */
+        .metrics-card {
+            background: var(--card-report); border-radius: 18px; padding: 16px 12px;
+            display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center;
+            box-shadow: 0 4px 15px rgba(22, 105, 122, 0.05); margin-bottom: 24px;
+        }
+        .top-metrics {
+            box-shadow: 0 4px 15px rgba(22, 105, 122, 0.08);
+        }
+        .metric-box { text-align: center; }
+        .metric-box .label { font-size: 11px; color: var(--text-report-sub); font-weight: 500; margin-bottom: 8px; line-height: 1.2; min-height: 26px; display: flex; align-items: center; justify-content: center; }
+        .metric-box .val { font-size: 22px; font-weight: bold; color: var(--text-report-main); margin: 0; }
+        .metric-box .val span { font-size: 13px; font-weight: normal; margin-left: 2px; }
+        .metric-divider { width: 1px; height: 40px; background: #e6e0da; }
+
+        /* クイックモード切り替えボタンカード */
+        .mode-trigger-card-top { 
+            color: #fff; text-align: center; padding: 20px; cursor: pointer; 
+            border-radius: 18px; margin-bottom: 28px;
+            display: flex; align-items: center; justify-content: center; gap: 14px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .mode-trigger-card-top.to-night { 
+            background: linear-gradient(135deg, var(--ocean-dark), #0f4652); 
+            box-shadow: 0 6px 16px rgba(22, 105, 122, 0.3);
+        }
+        .mode-trigger-card-top.to-day {
+            background: linear-gradient(135deg, var(--sunset-orange), #e08b1b);
+            box-shadow: 0 6px 16px rgba(255, 166, 43, 0.4);
+        }
+        .mode-trigger-card-top:active { transform: scale(0.98); }
+        .mode-trigger-icon-top { font-size: 28px; }
+        .mode-trigger-card-top h3 { margin: 0; font-size: 16px; font-weight: bold; }
+
+
+        /* ==========================================
+           【画面1】睡眠データ表示
+           ========================================== */
+        .report-theme {
+            background: var(--bg-report);
+            color: var(--text-report-main);
+            min-height: 100vh;
+        }
+        .report-header {
+            display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;
+        }
+        .report-header h1 { font-size: 24px; margin: 0 0 4px 0; font-weight: bold; color: var(--text-report-main); }
+        .report-header p { font-size: 14px; color: var(--text-report-sub); margin: 0; }
+
+        /* グラフカード */
+        .chart-card {
+            background: var(--card-report); border-radius: 18px; padding: 18px;
+            box-shadow: 0 4px 15px rgba(22, 105, 122, 0.04); margin-bottom: 16px;
+        }
+        .chart-card h2 { font-size: 15px; font-weight: bold; margin: 0 0 12px 0; color: var(--text-report-main); }
+        .chart-legends { display: flex; gap: 14px; margin-bottom: 20px; font-size: 11px; font-weight: 500; }
+        .legend { display: flex; align-items: center; gap: 6px; color: var(--text-report-sub); }
+        .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+        .dot-eveille { background: var(--sunset-orange); }
+        .dot-leger { background: var(--ocean-light); }
+        .dot-profond { background: var(--ocean-dark); }
+
+        .timeline-visual {
+            height: 65px; display: flex; align-items: flex-end; gap: 2px; margin-bottom: 6px;
+        }
+        .time-bar { border-radius: 3px 3px 0 0; transition: all 0.3s; }
+        .time-bar.profond { background: linear-gradient(to top, #0f4652, var(--ocean-dark)); height: 60%; flex: 2; }
+        .time-bar.leger { background: linear-gradient(to top, var(--ocean-medium), var(--ocean-light)); height: 40%; flex: 3; }
+        .time-bar.eveille { background: linear-gradient(to top, #e08b1b, var(--sunset-orange)); height: 90%; flex: 0.6; }
+        .chart-hours { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-report-sub); font-weight: 500; margin-top: 8px; }
+
+        /* アドバイスカード */
+        .advice-card {
+            background: var(--card-report); border-radius: 18px; padding: 16px;
+            box-shadow: 0 4px 15px rgba(22, 105, 122, 0.04); margin-bottom: 24px;
+        }
+        .advice-card h2 { font-size: 15px; font-weight: bold; margin: 0 0 12px 0; color: var(--text-report-main); }
+        .advice-content { display: flex; gap: 14px; align-items: center; }
+        .advice-icon-wrapper {
+            width: 42px; height: 42px; background: #fff4e5; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+        }
+        .advice-text { font-size: 13px; color: var(--text-report-sub); line-height: 1.45; margin: 0; }
+
+
+        /* ==========================================
+           【画面2】環境設定（ライトテーマ）
+           ========================================== */
+        .light-theme { background: var(--sand-soft); color: var(--text-main-light); min-height: 100vh; }
+        .light-theme .card { background: #ffffff; border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .light-theme .header-light { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+        .back-btn { border: none; background: #e6e0da; color: var(--ocean-dark); width: 36px; height: 36px; border-radius: 50%; font-weight: bold; cursor: pointer; }
+        .status-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+        .status-box { background: #ffffff; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .status-box .val { font-size: 16px; font-weight: bold; margin-top: 4px; color: var(--ocean-dark); }
+        .ctrl-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .ctrl-title { font-weight: bold; display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--ocean-dark); }
+        
+        /* 🎵 音楽選択UI用のスタイル */
+        .audio-selector {
+            display: flex; justify-content: space-between; align-items: flex-start; margin-top: 14px; gap: 8px;
+        }
+        .audio-option {
+            display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; cursor: pointer; text-align: center;
+        }
+        .audio-icon-btn {
+            width: 46px; height: 46px; border-radius: 50%; background: #ffffff; border: 1px solid #e1dad3;
+            display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--ocean-dark);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02); transition: all 0.2s ease;
+        }
+        .audio-option span {
+            font-size: 10px; color: var(--text-sub-light); font-weight: 500; line-height: 1.2; word-break: break-word;
+        }
+        /* アクティブな音楽ボタンにパレットカラーを適用 */
+        .audio-option.active .audio-icon-btn {
+            background: var(--ocean-dark); color: #ffffff; border-color: var(--ocean-dark);
+            box-shadow: 0 4px 10px rgba(22, 105, 122, 0.3);
+        }
+        .audio-option.active span {
+            color: var(--ocean-dark); font-weight: bold;
+        }
+
+        /* スイッチ用スタイル */
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #dcdde1; transition: .3s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--ocean-medium); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        /* スライダーの見た目もパレット調整 */
+        input[type=range] {
+            outline: none;
+            accent-color: var(--ocean-dark);
+        }
+
+        /* ==========================================
+           【共通】固定ボトムナビゲーション
+           ========================================== */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+            width: 100%; max-width: 480px; height: 65px; background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(10px); box-shadow: 0 -3px 12px rgba(22, 105, 122, 0.06);
+            display: flex; justify-content: space-around; align-items: center; z-index: 1000;
+            transition: background 0.3s ease;
+        }
+        .nav-item {
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            font-size: 11px; color: #a2b4b8; cursor: pointer; font-weight: 500;
+        }
+        .nav-item.active { color: var(--ocean-dark); font-weight: bold; }
+        .nav-icon { font-size: 20px; }
+        .nav-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--sand-soft); font-size: 20px; display: flex; align-items: center; justify-content: center; }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <div id="app-top-page" class="app-screen">
+        <div class="top-header"></div>
+
+        <div class="app-logo-container">
+            <div class="app-logo-main">🐱<span style="color: var(--ocean-dark);">DODO</span></div>
+        </div>
+
+        <div class="welcome-container">
+            <h1 class="welcome-title">Bonjour Marie 👋</h1>
+            <p class="welcome-subtitle">Voici le récapitulatif de Léo</p>
+        </div>
+
+        <div class="metrics-card top-metrics">
+            <div class="metric-box">
+                <div class="label">Durée totale</div>
+                <p class="val">8<span>h</span>12</p>
+            </div>
+            <div class="metric-divider"></div>
+            <div class="metric-box">
+                <div class="label">Réveils</div>
+                <p class="val">2 <span>fois</span></p>
+            </div>
+            <div class="metric-divider"></div>
+            <div class="metric-box">
+                <div class="label">Temps<br>d'endormissement</div>
+                <p class="val">24 <span>min</span></p>
+            </div>
+        </div>
+
+        <div id="mode-toggle-trigger-top" class="mode-trigger-card-top to-night" onclick="triggerReceiverEnvironment()">
+            <span id="mode-icon-top" class="mode-trigger-icon-top">🌙</span>
+            <h3 id="mode-text-top">Activer le Mode Nuit</h3>
+        </div>
+    </div>
+
+
+    <div id="app-sleeping-result" class="app-screen">
+        <div class="report-header">
+            <div>
+                <h1>Nuit de Léo</h1>
+                <p id="app-date">Mercredi 15 mai</p>
+            </div>
+        </div>
+
+        <div class="metrics-card">
+            <div class="metric-box">
+                <div class="label">Durée totale</div>
+                <p class="val">8<span>h</span>12</p>
+            </div>
+            <div class="metric-divider"></div>
+            <div class="metric-box">
+                <div class="label">Réveils</div>
+                <p class="val">2 <span>fois</span></p>
+            </div>
+            <div class="metric-divider"></div>
+            <div class="metric-box">
+                <div class="label">Temps<br>d'endormissement</div>
+                <p class="val">24 <span>min</span></p>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <h2>Évolution de la nuit</h2>
+            <div class="chart-legends">
+                <div class="legend"><span class="legend-dot dot-eveille"></span>Eveillé</div>
+                <div class="legend"><span class="legend-dot dot-leger"></span>Léger</div>
+                <div class="legend"><span class="legend-dot dot-profond"></span>Profond</div>
+            </div>
+            
+            <div class="timeline-visual">
+                <div class="time-bar profond"></div>
+                <div class="time-bar leger"></div>
+                <div class="time-bar eveille"></div>
+                <div class="time-bar leger"></div>
+                <div class="time-bar profond"></div>
+                <div class="time-bar leger"></div>
+                <div class="time-bar profond"></div>
+                <div class="time-bar eveille"></div>
+                <div class="time-bar leger"></div>
+                <div class="time-bar profond"></div>
+            </div>
+            <div class="chart-hours">
+                <span>20:30</span>
+                <span>07:00</span>
+            </div>
+        </div>
+
+        <div class="advice-card">
+            <h2>Conseil du jour</h2>
+            <div class="advice-content">
+                <div class="advice-icon-wrapper">💡</div>
+                <p class="advice-text">Léo s'endort plus facilement lorsque la lumière est progressivement réduite.</p>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="app-environment-change" class="app-screen">
+        <div class="header-light">
+            <button class="back-btn" onclick="showScreen('app-top-page')">←</button>
+            <div>
+                <b style="font-size: 16px; color: var(--ocean-dark);">Contrôle Environnement</b><br>
+                <span style="font-size: 12px; color: var(--text-report-sub);">Chambre de bébé</span>
+            </div>
+        </div>
+
+        <div class="status-row">
+            <div class="status-box">💡<div style="font-size:11px;color:#7f8c8d;">Lumière</div><div class="val">20%</div></div>
+            <div class="status-box">🌡️<div style="font-size:11px;color:#7f8c8d;">Temp.</div><div class="val">19.5°C</div></div>
+            <div class="status-box">🔊<div style="font-size:11px;color:#7f8c8d;">Bruit</div><div class="val" style="color:var(--ocean-medium);">Actif</div></div>
+        </div>
+
+        <div class="card">
+            <div class="ctrl-header">
+                <div class="ctrl-title">💡 Lumière</div>
+                <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+            <input type="range" min="0" max="100" value="20" style="width:100%;">
+        </div>
+
+        <div class="card">
+            <div class="ctrl-header">
+                <div class="ctrl-title">🔊 Son</div>
+                <label class="switch"><input type="checkbox" id="sound-master-switch" checked onchange="toggleSoundSwitch(this.checked)"><span class="slider"></span></label>
+            </div>
+            
+            <div class="audio-selector">
+                <div class="audio-option active" id="opt-white-noise" onclick="selectBGM('white-noise')">
+                    <div class="audio-icon-btn">📊</div>
+                    <span>Bruit<br>blanc</span>
+                </div>
+                <div class="audio-option" id="opt-rain" onclick="selectBGM('rain')">
+                    <div class="audio-icon-btn">🌧️</div>
+                    <span>Pluie</span>
+                </div>
+                <div class="audio-option" id="opt-lullaby" onclick="selectBGM('lullaby')">
+                    <div class="audio-icon-btn">🎵</div>
+                    <span>Berceuse</span>
+                </div>
+                <div class="audio-option" id="opt-soft-music" onclick="selectBGM('soft-music')">
+                    <div class="audio-icon-btn">🎶</div>
+                    <span>Musique<br>douce</span>
+                </div>
+                <div class="audio-option" id="opt-silence" onclick="selectBGM('silence')">
+                    <div class="audio-icon-btn">🔇</div>
+                    <span>Silence</span>
+                </div>
+            </div>
+
+            <div style="margin-top: 16px;">
+                <input type="range" id="app-music-slider" min="0" max="100" value="50" style="width:100%;" oninput="changeMusicVolume(this.value)">
+            </div>
+        </div>
+    </div>
+
+
+    <div class="bottom-nav">
+        <div id="nav-accueil" class="nav-item active" onclick="showScreen('app-top-page')">
+            <span class="nav-icon">🏠</span><span>Accueil</span>
+        </div>
+        <div id="nav-environnement" class="nav-item" onclick="showScreen('app-environment-change')">
+            <span class="nav-icon">⚙️</span><span>Environnement</span>
+        </div>
+        <div id="nav-analyses" class="nav-item" onclick="showScreen('app-sleeping-result')">
+            <span class="nav-icon">📊</span><span>Analyses</span>
+        </div>
+        <div class="nav-item">
+            <div class="nav-avatar">🐱</div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let isNightMode = false;
+
+        // --- 📡 Receiver連携用・BGMステート制御（Application側での再生処理は完全撤去しました） ---
+        let selectedBGMType = 'white-noise';
+        let isSoundEnabled = true;
+
+        function selectBGM(type) {
+            selectedBGMType = type;
+            
+            // UI上のアクティブボタンの切り替え
+            document.querySelectorAll('.audio-option').forEach(el => el.classList.remove('active'));
+            if(type === 'white-noise') document.getElementById('opt-white-noise').classList.add('active');
+            if(type === 'rain') document.getElementById('opt-rain').classList.add('active');
+            if(type === 'lullaby') document.getElementById('opt-lullaby').classList.add('active');
+            if(type === 'soft-music') document.getElementById('opt-soft-music').classList.add('active');
+            if(type === 'silence') document.getElementById('opt-silence').classList.add('active');
+
+            // Receiver側に「どの音楽に変更されたか」をブロードキャスト
+            socket.emit('bgm-selection-change', { bgmType: type });
+            console.log("ReceiverへBGM変更信号を送信:", type);
+        }
+
+        function toggleSoundSwitch(enabled) {
+            isSoundEnabled = enabled;
+            // マスター音量のON/OFFスイッチの状態変更もReceiverへ通知
+            socket.emit('bgm-selection-change', { bgmType: enabled ? selectedBGMType : 'silence' });
+        }
+
+        function changeMusicVolume(val) {
+            // スライダーを動かした時に、Receiverへ直接音量の数値を送信
+            socket.emit('volume-change', { volume: parseInt(val) });
+            console.log("Receiverへ音量変更信号を送信:", val);
+        }
+        // ----------------------------------------
+
+        socket.on('render-display', (data) => {
+            console.log("Receiverのモード変更イベントを検知しました:", data.mode);
+            if (data.mode === 'waiting') {
+                isNightMode = false;
+                applyUIForDayMode();
+                showScreen('app-sleeping-result');
+                updateCurrentDate();
+            } else if (data.mode === 'environment') {
+                isNightMode = true;
+                applyUIForNightMode();
+            }
+        });
+
+        // Receiver側の物理ボタン（＋/－）が押されたときの音量変更をApplicationのスライダーに同期
+        socket.on('volume-change', (data) => {
+            if (data && data.volume !== undefined) {
+                console.log("Receiver側のボタン操作による音量変更を検知:", data.volume);
+                const slider = document.getElementById('app-music-slider');
+                if (slider) {
+                    slider.value = data.volume;
+                }
+            }
+        });
+
+        function triggerReceiverEnvironment() {
+            if (isNightMode) {
+                socket.emit('change-mode', { mode: 'waiting' });
+            } else {
+                socket.emit('change-mode', { mode: 'environment' });
+            }
+        }
+
+        function applyUIForDayMode() {
+            const card = document.getElementById('mode-toggle-trigger-top');
+            const icon = document.getElementById('mode-icon-top');
+            const text = document.getElementById('mode-text-top');
+            if (card) card.className = "mode-trigger-card-top to-night";
+            if (icon) icon.innerText = "🌙";
+            if (text) text.innerText = "Activer le Mode Nuit";
+        }
+
+        function applyUIForNightMode() {
+            const card = document.getElementById('mode-toggle-trigger-top');
+            const icon = document.getElementById('mode-icon-top');
+            const text = document.getElementById('mode-text-top');
+            if (card) card.className = "mode-trigger-card-top to-day";
+            if (icon) icon.innerText = "☀️";
+            if (text) text.innerText = "Activer le Mode Jour";
+        }
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.app-screen').forEach(el => el.classList.remove('active'));
+            const targetScreen = document.getElementById(screenId);
+            targetScreen.classList.add('active');
+
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            if (screenId === 'app-top-page') {
+                document.getElementById('nav-accueil').classList.add('active');
+                document.body.className = ""; 
+                targetScreen.className = "app-screen active";
+            } 
+            else if (screenId === 'app-sleeping-result') {
+                document.getElementById('nav-analyses').classList.add('active');
+                document.body.className = "on-dark-page"; 
+                targetScreen.className = "app-screen report-theme active";
+                updateCurrentDate();
+            } 
+            else if (screenId === 'app-environment-change') {
+                document.getElementById('nav-environnement').classList.add('active');
+                document.body.className = ""; 
+                targetScreen.className = "app-screen light-theme active"; 
+            }
+        }
+
+        function updateCurrentDate() {
+            const now = new Date();
+            const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+            const months = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+            
+            const dayName = days[now.getDay()];
+            const dayNum = now.getDate();
+            const monthName = months[now.getMonth()];
+            
+            const dateEl = document.getElementById('app-date');
+            if (dateEl) dateEl.innerText = `${dayName} ${dayNum} ${monthName}`;
+        }
+
+        showScreen('app-top-page');
+    </script>
+</body>
+</html>
